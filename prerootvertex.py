@@ -15,7 +15,6 @@ class IndSetCntExpr:
         self.power_bases = power_bases.copy()
         self.factors = factors.copy()
         self.remove_zero_factors()
-        self.expr = list(zip(power_bases, factors))
 
     def sympified(self):
         s = sympify(0)
@@ -26,6 +25,19 @@ class IndSetCntExpr:
     def remove_zero_factors(self):
         self.power_bases = [self.power_bases[i] for i in range(len(self.factors)) if self.factors[i] != 0]
         self.factors = [self.factors[i] for i in range(len(self.factors)) if self.factors[i] != 0]
+
+    def is_number(self):
+        if len(self.power_bases) > 1:
+            return False
+        if len(self.power_bases) == 1:
+            return self.power_bases[0] == 1
+        return True
+
+    def substitute(self, val):
+        ret = Fraction(0)
+        for p, f in zip(self.power_bases, self.factors):
+            ret += f * (p**val)
+        return ret
 
     def __iadd__(self, other):
         for op, of in zip(other.power_bases, other.factors):
@@ -82,13 +94,11 @@ class IndSetCntExpr:
             return 0, 0
         tmp = IndSetCntExpr(self.power_bases, self.factors)
         id = tmp.find_index_of_max_abs_power()
-        expr = self.sympified()
-        expr = simplify(expr)
-        if expr.is_number:
-            return 1 if expr > 0 else 0 if expr == 0 else -1, 0
-        sym_k = next(iter(expr.free_symbols))
-        val_0 = expr.subs(sym_k, 0)
-        assert val_0.is_number
+
+        assert len(tmp.factors) > 0
+        if tmp.is_number():
+            return (1 if tmp.factors[0] > 0 else 0 if tmp.factors[0] == 0 else -1), 0
+        val_0 = tmp.substitute(0)
         last_sign = 1 if val_0 > 0 else 0 if val_0 == 0 else -1
         last_k = 0
 
@@ -100,8 +110,8 @@ class IndSetCntExpr:
             if sum < abs(tmp.factors[id]):
                 return last_sign, last_k
 
-            val_k = expr.subs(sym_k, k)
-            assert val_k.is_number
+            val_k = tmp.substitute(0)
+
             new_sign = 1 if val_k > 0 else 0 if val_k == 0 else -1
             if new_sign != last_sign:
                 last_sign = new_sign
@@ -210,14 +220,12 @@ def swap_forest(f: List[PreRootVertex], t: List[PreRootVertex]):
 
 def is_swap_edge(from_forest, to_forest):
     F12, F21_excl = swap_forest(from_forest, to_forest)
-    sF12 = simplify(F12.sympified())
-    sF21_excl = simplify(F21_excl.sympified())
-    if sF12.is_number and sF12 == 0 and sF21_excl.is_number and sF21_excl == 0:  # do not add edge which equalize independent sets count
+    if F12.is_number() and F12.substitute(0) == 0 and F21_excl.is_number() and F21_excl.substitute(0) == 0:  # do not add edge which equalize independent sets count
         return False, -1, F12, F21_excl
     max_since = MIN_K_VAL
     sign, since = F12.sign_on_limit()
     max_since = max(max_since, since)
-    if sign >= 0:
+    if sign > 0:
         sign, since = F21_excl.sign_on_limit()
         max_since = max(max_since, since)
         if sign > 0:
