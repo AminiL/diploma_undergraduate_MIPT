@@ -1,12 +1,10 @@
 import itertools
 
-from sympy import *
 from typing import List
 from fractions import Fraction
 
 
 MIN_K_VAL = 23
-K = Symbol('k', nonnegative=True, integer=True)
 
 
 class IndSetCntExpr:
@@ -15,12 +13,6 @@ class IndSetCntExpr:
         self.power_bases = power_bases.copy()
         self.factors = factors.copy()
         self.remove_zero_factors()
-
-    def sympified(self):
-        s = sympify(0)
-        for p, f in zip(self.power_bases, self.factors):
-            s += sympify(f) * (p**K)
-        return s
 
     def remove_zero_factors(self):
         self.power_bases = [self.power_bases[i] for i in range(len(self.factors)) if self.factors[i] != 0]
@@ -124,16 +116,12 @@ class IndSetCntExpr:
 
 
 class PreRootVertex:
-    k = Symbol('k', nonnegative=True, integer=True)
-
     def __init__(self, mod: int, delta: int = 0):
         assert 0 <= mod < 7
 
-        kd = PreRootVertex.k + delta
-        self.base_size = (PreRootVertex.k + delta) * 7
+        # kd = k + delta
         self.mod = mod
         self.delta = delta
-        self.sz = self.base_size + mod + 1
         if mod == 0:
             incl_power_base = 27
             incl_factor = Fraction(27**delta) if delta >= 0 else Fraction(1, 27**(-delta))
@@ -197,24 +185,20 @@ class PreRootVertex:
             excl_factor = (Fraction(35 ** (delta - 3)) if delta - 3 >= 0 else Fraction(1, 35 ** (-delta + 3))) * 97**3
             self.excl_ind_cnt = IndSetCntExpr([excl_power_base], [excl_factor])
             # self.excl_ind_cnt = 35**(kd - 3) * 97**3
-        self.kd = kd
 
 
 def get_forest_params(f: List[PreRootVertex]):
-    szf = 0
     f_ind_cnt = IndSetCntExpr([1], [Fraction(1)])
     f_excl_ind_cnt = IndSetCntExpr([1], [Fraction(1)])
     for v in f:
-        szf += v.sz
         f_excl_ind_cnt *= v.excl_ind_cnt
         f_ind_cnt *= (v.excl_ind_cnt + v.incl_ind_cnt)
-    return szf, f_excl_ind_cnt, f_ind_cnt
+    return f_excl_ind_cnt, f_ind_cnt
 
 
 def swap_forest(f: List[PreRootVertex], t: List[PreRootVertex]):
-    szf, f_excl_ind_cnt, f_ind_cnt = get_forest_params(f)
-    szt, t_excl_ind_cnt, t_ind_cnt = get_forest_params(t)
-    assert simplify(szt - szf) == 0
+    f_excl_ind_cnt, f_ind_cnt = get_forest_params(f)
+    t_excl_ind_cnt, t_ind_cnt = get_forest_params(t)
     return f_ind_cnt - t_ind_cnt, t_excl_ind_cnt - f_excl_ind_cnt
 
 
